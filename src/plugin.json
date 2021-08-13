@@ -2,6 +2,8 @@
   "$schema": "https://github.com/grafana/grafana/raw/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "JSON API",
+  "backend": true,
+  "executable": "gpx_marcusolsson_json_datasource",
   "id": "marcusolsson-json-datasource",
   "metrics": true,
   "logs": true,

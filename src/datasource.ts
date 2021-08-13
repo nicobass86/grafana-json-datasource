@@ -3,7 +3,6 @@ import {
   DataFrame,
   DataQueryRequest,
   DataQueryResponse,
-  DataSourceApi,
   DataSourceInstanceSettings,
   Field,
   MetricFindValue,
@@ -11,15 +10,16 @@ import {
   TimeRange,
   toDataFrame,
 } from '@grafana/data';
-import { getTemplateSrv } from '@grafana/runtime';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 import { JSONPath } from 'jsonpath-plus';
 import _ from 'lodash';
 import API from './api';
+import { Observable } from 'rxjs';
 import { detectFieldType } from './detectFieldType';
 import { parseValues } from './parseValues';
 import { JsonApiDataSourceOptions, JsonApiQuery, Pair } from './types';
 
-export class JsonDataSource extends DataSourceApi<JsonApiQuery, JsonApiDataSourceOptions> {
+export class JsonDataSource extends DataSourceWithBackend<JsonApiQuery, JsonApiDataSourceOptions> {
   api: API;
 
   constructor(instanceSettings: DataSourceInstanceSettings<JsonApiDataSourceOptions>) {
@@ -39,15 +39,16 @@ export class JsonDataSource extends DataSourceApi<JsonApiQuery, JsonApiDataSourc
     return this.requestJson(query, replace({}, range));
   }
 
-  async query(request: DataQueryRequest<JsonApiQuery>): Promise<DataQueryResponse> {
-    const promises = await request.targets
-      .filter((query) => !query.hide)
-      .flatMap((query) => this.doRequest(query, request.range, request.scopedVars));
+  query(request: DataQueryRequest<JsonApiQuery>): Observable<DataQueryResponse> {
+    return new Observable<DataQueryResponse>((observer) => {
+      const promises = request.targets
+        .filter((query) => !query.hide)
+        .flatMap((query) => this.doRequest(query, request.range, request.scopedVars));
 
-    const res: DataFrame[][] = await Promise.all(promises);
-
-    // Wait for all queries to finish before returning the result.
-    return { data: res.flatMap((frames) => frames) };
+      Promise.all(promises).then((res) => {
+        observer.next({ data: res.flatMap((frames) => frames) });
+      });
+    });
   }
 
   /**
